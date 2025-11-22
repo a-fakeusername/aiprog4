@@ -271,7 +271,16 @@ def getMostLikelyFoodHousePosition(evidence, bayesNet, eliminationOrder):
     (This should be a very short method.)
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    resAssignment = None
+    maxProb = 0
+    factor = inference.inferenceByVariableElimination(bayesNet, [FOOD_HOUSE_VAR], evidence, eliminationOrder)
+
+    for assignment in factor.getAllPossibleAssignmentDicts():
+        if factor.getProbability(assignment) > maxProb:
+            maxProb = factor.getProbability(assignment)
+            resAssignment = assignment[FOOD_HOUSE_VAR]
+
+    return {FOOD_HOUSE_VAR: resAssignment}
 
 
 class BayesAgent(game.Agent):
@@ -356,24 +365,29 @@ class VPIAgent(BayesAgent):
                 gameState.data.observedPositions[ox][oy] = True
 
     def computeEnterValues(self, evidence, eliminationOrder):
-        """
-        Question 8a: Value of perfect information
+        queryVars = [FOOD_HOUSE_VAR, GHOST_HOUSE_VAR]
+        relevantEvidence = {var: val for var, val in evidence.items() if var not in queryVars}
 
-        Given the evidence, compute the value of entering the left and right
-        houses immediately. You can do this by obtaining the joint distribution
-        over the food and ghost house positions using your inference procedure.
-        The reward associated with entering each house is given in the *_REWARD
-        variables at the top of the file.
+        factor = inference.inferenceByVariableElimination(
+            self.bayesNet,
+            queryVars,
+            relevantEvidence,
+            eliminationOrder
+        )
 
-        *Do not* take into account the "time elapsed" cost of traveling to each
-        of the houses---this is calculated elsewhere in the code.
-        """
+        assignment1 = {FOOD_HOUSE_VAR: TOP_LEFT_VAL, GHOST_HOUSE_VAR: TOP_RIGHT_VAL}
+        assignment2 = {FOOD_HOUSE_VAR: TOP_RIGHT_VAL, GHOST_HOUSE_VAR: TOP_LEFT_VAL}
 
-        leftExpectedValue = 0
-        rightExpectedValue = 0
+        for var in factor.variables():
+            if var in evidence:
+                assignment1[var] = evidence[var]
+                assignment2[var] = evidence[var]
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        p1 = factor.getProbability(assignment1)
+        p2 = factor.getProbability(assignment2)
+
+        leftExpectedValue  = p1 * WON_GAME_REWARD + p2 * GHOST_COLLISION_REWARD
+        rightExpectedValue = p1 * GHOST_COLLISION_REWARD + p2 * WON_GAME_REWARD
 
         return leftExpectedValue, rightExpectedValue
 
@@ -439,7 +453,10 @@ class VPIAgent(BayesAgent):
         expectedValue = 0
 
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        for prob, outcomes in self.getExplorationProbsAndOutcomes(evidence):
+            leftEV, rightEV = self.computeEnterValues(outcomes, enterEliminationOrder)
+            bestEV = max(leftEV, rightEV)
+            expectedValue += prob * bestEV
 
         return expectedValue
 
